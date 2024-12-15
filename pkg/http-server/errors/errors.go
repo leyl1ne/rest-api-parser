@@ -1,4 +1,4 @@
-package handlers
+package errors
 
 import (
 	"net/http"
@@ -24,20 +24,11 @@ func (e *ErrorResponse) Render(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func ErrorRenderer(err error) *ErrorResponse {
+func Error(err error) *ErrorResponse {
 	return &ErrorResponse{
 		Err:        err,
 		StatusCode: 400,
 		StatusText: "Bad request",
-		Message:    err.Error(),
-	}
-}
-
-func ServerErrorRenderer(err error) *ErrorResponse {
-	return &ErrorResponse{
-		Err:        err,
-		StatusCode: 500,
-		StatusText: "Internal server error",
 		Message:    err.Error(),
 	}
 }
