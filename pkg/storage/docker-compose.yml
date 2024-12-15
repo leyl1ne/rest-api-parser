@@ -1,0 +1,14 @@
+services:
+  database:
+    container_name: database
+    image: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./database:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=parserDB
+      - POSTGRES_USER=leyline
+      - POSTGRES_PASSWORD=pass 
+
+      
