@@ -7,7 +7,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/leyl1ne/rest-api-parser/pkg/handlers"
+	"github.com/leyl1ne/rest-api-parser/pkg/http-server/handlers"
+	mwLogger "github.com/leyl1ne/rest-api-parser/pkg/http-server/middleware/logger"
+	"github.com/leyl1ne/rest-api-parser/pkg/logger/handlers/slogpretty"
 	"github.com/leyl1ne/rest-api-parser/pkg/storage/psql"
 )
 
@@ -23,12 +25,37 @@ func handleRequests(DB *sql.DB) {
 }
 
 func main() {
-	log := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	log := setupPrettySlog()
+
+	log.Info(
+		"starting rest-api-parser",
+	)
+	log.Debug("debug messages are enabled")
 
 	storage, err := psql.New()
 	if err != nil {
 		log.Error("failed to initialize storage", err)
 	}
-	handleRequests(DB)
-	psql.CloseConnection(DB)
+
+	router := chi.NewRouter()
+
+	router.Use(middleware.RequestID)
+	router.Use(middleware.Logger)
+	router.Use(mwLogger.New(log))
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.URLFormat)
+
+	psql.CloseConnection()
+}
+
+func setupPrettySlog() *slog.Logger {
+	opts := slogpretty.PrettyHandlerOptions{
+		SlogOpts: &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		},
+	}
+
+	handler := opts.NewPrettyHandler(os.Stdout)
+
+	return slog.New(handler)
 }
