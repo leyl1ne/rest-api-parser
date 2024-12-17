@@ -67,7 +67,6 @@ func New() (*Storage, error) {
 		album VARCHAR(255),
 		release_year YEAR,
 		genre VARCHAR(100),
-		duration INT,
 		lyrics TEXT NOT NULL);`)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
@@ -81,15 +80,15 @@ func (s *Storage) SaveSong(song models.Song) (int64, error) {
 	const op = "storage.psql.SaveSong"
 
 	stmt, err := s.db.Prepare(`
-	INSERT INTO songs (title,artist,album,release_year,genre,duration,lyrics)
-	VALUES ($2,$3,$4,$5,$6,$7,$8);`)
+	INSERT INTO songs (title,artist,album,release_year,genre,lyrics)
+	VALUES ($1,$2,$3,$4,$5,$6);`)
 	if err != nil {
 		return 0, fmt.Errorf("%s: prepare statement: %w", op, err)
 	}
 
 	res, err := stmt.Exec(song.Title,
 		song.Artist, song.Album, song.ReleaseYear,
-		song.Genre, song.Duration, song.Lyrics)
+		song.Genre, song.Lyrics)
 	if err != nil {
 		if postgeErr, ok := err.(*pq.Error); ok && postgeErr.Code == "23505" {
 			return 0, fmt.Errorf("%s: %w", op, storage.ErrSongExists)
@@ -144,7 +143,7 @@ func (s *Storage) GetSong(id int) (models.Song, error) {
 
 	err = stmt.QueryRow(id).Scan(&song.ID, &song.Title,
 		&song.Artist, &song.Album, &song.ReleaseYear,
-		&song.Genre, &song.Duration, &song.Lyrics)
+		&song.Genre, &song.Lyrics)
 	if errors.Is(err, sql.ErrNoRows) {
 		return models.Song{}, fmt.Errorf("%s: %w", op, storage.ErrSongNotFound)
 	}
@@ -173,7 +172,7 @@ func (s *Storage) GetAllSong() ([]models.Song, error) {
 		var song models.Song
 		err = res.Scan(&song.ID, &song.Title,
 			&song.Artist, &song.Album, &song.ReleaseYear,
-			&song.Genre, &song.Duration, &song.Lyrics)
+			&song.Genre, &song.Lyrics)
 		if err != nil {
 			return songs, fmt.Errorf("%s: %w", op, err)
 		}
@@ -189,7 +188,7 @@ func (s *Storage) UpdateSong(id int, updatedSong models.Song) error {
 	stmt, err := s.db.Prepare(`
 	UPDATE songs SET 
 	title = $2, artist = $3, album = $4, 
-	release_year = $5, genre = $6, duration = $7, lyrics = $8 
+	release_year = $5, genre = $6, lyrics = $7 
 	WHERE id = $1;`)
 	if err != nil {
 		return fmt.Errorf("%s: prepare statement: %w", op, err)
@@ -197,7 +196,7 @@ func (s *Storage) UpdateSong(id int, updatedSong models.Song) error {
 
 	res, err := stmt.Exec(id, updatedSong.Title,
 		updatedSong.Artist, updatedSong.Album, updatedSong.ReleaseYear,
-		updatedSong.Genre, updatedSong.Duration, updatedSong.Lyrics)
+		updatedSong.Genre, updatedSong.Lyrics)
 	if err != nil {
 		return fmt.Errorf("%s: execute statement: %w", op, err)
 	}

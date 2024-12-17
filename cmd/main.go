@@ -1,28 +1,21 @@
 package main
 
 import (
-	"database/sql"
+	"context"
 	"log/slog"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/leyl1ne/rest-api-parser/pkg/http-server/handlers"
+	"github.com/leyl1ne/rest-api-parser/pkg/http-server/handlers/song/save"
 	mwLogger "github.com/leyl1ne/rest-api-parser/pkg/http-server/middleware/logger"
 	"github.com/leyl1ne/rest-api-parser/pkg/logger/handlers/slogpretty"
 	"github.com/leyl1ne/rest-api-parser/pkg/storage/psql"
 )
-
-func handleRequests(DB *sql.DB) {
-	h := handlers.New(DB)
-	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Get("/", h.GetAllSong)
-	r.Get("/{id}", h.GetSong)
-	r.Post("/add", h.AddSong)
-	r.Put("/add/{id}", h.UpdateSong)
-	r.Delete("/delete/{id}", h.DeleteSong)
-}
 
 func main() {
 	log := setupPrettySlog()
@@ -34,7 +27,7 @@ func main() {
 
 	storage, err := psql.New()
 	if err != nil {
-		log.Error("failed to initialize storage", err)
+		log.Error("failed to initialize storage", slog.String("error", err.Error()))
 	}
 
 	router := chi.NewRouter()
@@ -45,7 +38,40 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	psql.CloseConnection()
+	router.Post("/save", save.New(log, storage))
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	server := &http.Server{
+		Addr:         "0.0.0.0:8080",
+		Handler:      router,
+		ReadTimeout:  time.Duration(4 * time.Second),
+		WriteTimeout: time.Duration(4 * time.Second),
+		IdleTimeout:  time.Duration(30 * time.Second),
+	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil {
+			log.Error("failed to start server")
+		}
+	}()
+
+	log.Info("server started")
+
+	<-done
+	log.Info("stopping server")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Error("failed to stop server", slog.String("error", err.Error()))
+
+		return
+	}
+
+	log.Info("server stopped")
 }
 
 func setupPrettySlog() *slog.Logger {
