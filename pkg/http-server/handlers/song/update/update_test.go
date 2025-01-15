@@ -9,13 +9,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/leyl1ne/rest-api-parser/pkg/api/response"
 	"github.com/leyl1ne/rest-api-parser/pkg/http-server/handlers/song/update"
 	"github.com/leyl1ne/rest-api-parser/pkg/http-server/handlers/song/update/mocks"
 	"github.com/leyl1ne/rest-api-parser/pkg/logger/handlers/slogdiscard"
 	"github.com/leyl1ne/rest-api-parser/pkg/models"
-	"github.com/stretchr/testify/mock"
+	"github.com/leyl1ne/rest-api-parser/pkg/storage"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,7 +30,7 @@ func TestUpdateHandler(t *testing.T) {
 
 		{
 			name:   "Success",
-			takeId: "12",
+			takeId: "1",
 			updateSong: models.Song{
 				Title:       "Кот",
 				Artist:      "Бар Хороших Людей",
@@ -41,20 +41,7 @@ func TestUpdateHandler(t *testing.T) {
 			},
 		},
 		{
-			name:   "Empty ID",
-			takeId: "",
-			updateSong: models.Song{
-				Title:       "Кот",
-				Artist:      "Бар Хороших Людей",
-				Album:       "Брянский шум",
-				ReleaseYear: 2024,
-				Genre:       "Гринж",
-				Lyrics:      "Мяу, Мяу, Мяу",
-			},
-			respError: "song ID is required",
-		},
-		{
-			name:   "ID is not digit",
+			name:   "Invalid ID",
 			takeId: "fd",
 			updateSong: models.Song{
 				Title:       "Кот",
@@ -72,7 +59,21 @@ func TestUpdateHandler(t *testing.T) {
 			respError: "empty request",
 		},
 		{
-			name:   "UpdateSong Error",
+			name:   "Song Not Found",
+			takeId: "1",
+			updateSong: models.Song{
+				Title:       "Кот",
+				Artist:      "Бар Хороших Людей",
+				Album:       "Брянский шум",
+				ReleaseYear: 2024,
+				Genre:       "Гринж",
+				Lyrics:      "Мяу, Мяу, Мяу",
+			},
+			respError: "song not found",
+			mockError: storage.ErrSongNotFound,
+		},
+		{
+			name:   "Failed to update",
 			takeId: "1",
 			updateSong: models.Song{
 				Title:       "Кот",
@@ -93,7 +94,7 @@ func TestUpdateHandler(t *testing.T) {
 			songUpdaterMock := mocks.NewSongUpdater(t)
 
 			if tc.respError == "" || tc.mockError != nil {
-				songUpdaterMock.On("UpdateSong", mock.AnythingOfType("int"), tc.updateSong).
+				songUpdaterMock.On("UpdateSong", 1, tc.updateSong).
 					Return(tc.mockError).
 					Once()
 			}
@@ -118,7 +119,7 @@ func TestUpdateHandler(t *testing.T) {
 
 			r.ServeHTTP(rr, req)
 
-			require.Equal(t, rr.Code, http.StatusOK)
+			require.Equal(t, http.StatusOK, rr.Code)
 
 			body := rr.Body.String()
 

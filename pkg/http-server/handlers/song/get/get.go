@@ -60,14 +60,14 @@ func New(log *slog.Logger, songGetter SongGetter) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			log.Error("failed to update song")
+			log.Error("failed to get song", slog.String("error", err.Error()))
 
-			render.JSON(w, r, resp.Error("failed to update song"))
+			render.JSON(w, r, resp.Error("failed to get song"))
 
 			return
 		}
 
-		log.Info("song updated", slog.Int("id", id))
+		log.Info("song received", slog.Int("id", id))
 		responseOK(w, r, receivedSong)
 
 	}

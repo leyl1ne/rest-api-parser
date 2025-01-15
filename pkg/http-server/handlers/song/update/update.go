@@ -31,7 +31,7 @@ func New(log *slog.Logger, songUpdater SongUpdater) http.HandlerFunc {
 
 		songID := chi.URLParam(r, "id")
 		if songID == "" {
-			log.Error("filed to get ID")
+			log.Error("failed to get ID")
 
 			render.JSON(w, r, resp.Error("song ID is required"))
 
@@ -41,7 +41,10 @@ func New(log *slog.Logger, songUpdater SongUpdater) http.HandlerFunc {
 		id, err := strconv.Atoi(songID)
 		if err != nil {
 			log.Error("failed to convert ID", slog.String("error", err.Error()))
+
 			render.JSON(w, r, resp.Error("invalid song ID"))
+
+			return
 		}
 
 		var updatedSong models.Song
@@ -72,7 +75,7 @@ func New(log *slog.Logger, songUpdater SongUpdater) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			log.Error("failed to update song")
+			log.Error("failed to update song", slog.String("error", err.Error()))
 
 			render.JSON(w, r, resp.Error("failed to update song"))
 

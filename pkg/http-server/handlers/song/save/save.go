@@ -21,7 +21,7 @@ type SongSaver interface {
 
 func New(log *slog.Logger, songSaver SongSaver) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		const op = "handlers.url.save.New"
+		const op = "handlers.song.save.New"
 
 		log := log.With(
 			slog.String("op", op),
@@ -68,7 +68,7 @@ func New(log *slog.Logger, songSaver SongSaver) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			log.Error("failed to add song")
+			log.Error("failed to add song", slog.String("error", err.Error()))
 
 			render.JSON(w, r, resp.Error("failed to add song"))
 

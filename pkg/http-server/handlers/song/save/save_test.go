@@ -96,7 +96,7 @@ func TestSaveHandler(t *testing.T) {
 
 			handler.ServeHTTP(rr, req)
 
-			require.Equal(t, rr.Code, http.StatusOK)
+			require.Equal(t, http.StatusOK, rr.Code)
 
 			body := rr.Body.String()
 

@@ -48,7 +48,7 @@ func TestGetHandler(t *testing.T) {
 		{
 			name:      "Failed to update",
 			takeId:    "1",
-			respError: "failed to update song",
+			respError: "failed to get song",
 			mockError: errors.New("unexpected error"),
 		},
 	}
