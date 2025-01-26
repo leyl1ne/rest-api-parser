@@ -61,11 +61,11 @@ func New() (*Storage, error) {
 	if !exists {
 		_, err := db.Query(`
 		CREATE TABLE songs (
-		id INT AUTO_INCREMENT PRIMARY KEY,
+		id SERIAL PRIMARY KEY,
 		title VARCHAR(255) NOT NULL,
 		artist VARCHAR(255) NOT NULL,
 		album VARCHAR(255),
-		release_year YEAR,
+		release_year INT,
 		genre VARCHAR(100),
 		lyrics TEXT NOT NULL);`)
 		if err != nil {
@@ -81,25 +81,22 @@ func (s *Storage) SaveSong(song models.Song) (int64, error) {
 
 	stmt, err := s.db.Prepare(`
 	INSERT INTO songs (title,artist,album,release_year,genre,lyrics)
-	VALUES ($1,$2,$3,$4,$5,$6);`)
+	VALUES ($1,$2,$3,$4,$5,$6)
+	RETURNING id;`)
 	if err != nil {
 		return 0, fmt.Errorf("%s: prepare statement: %w", op, err)
 	}
 
-	res, err := stmt.Exec(song.Title,
+	var id int64
+	err = stmt.QueryRow(song.Title,
 		song.Artist, song.Album, song.ReleaseYear,
-		song.Genre, song.Lyrics)
+		song.Genre, song.Lyrics).Scan(&id)
 	if err != nil {
 		if postgeErr, ok := err.(*pq.Error); ok && postgeErr.Code == "23505" {
 			return 0, fmt.Errorf("%s: %w", op, storage.ErrSongExists)
 		}
 
 		return 0, fmt.Errorf("%s: execute statement: %w", op, err)
-	}
-
-	id, err := res.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("%s: failed to get last insert id: %w", op, err)
 	}
 
 	return id, nil

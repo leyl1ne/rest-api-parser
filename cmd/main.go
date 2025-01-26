@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/leyl1ne/rest-api-parser/pkg/http-server/handlers/song/getAll"
 	"github.com/leyl1ne/rest-api-parser/pkg/http-server/handlers/song/save"
 	mwLogger "github.com/leyl1ne/rest-api-parser/pkg/http-server/middleware/logger"
 	"github.com/leyl1ne/rest-api-parser/pkg/logger/handlers/slogpretty"
@@ -39,6 +40,7 @@ func main() {
 	router.Use(middleware.URLFormat)
 
 	router.Post("/save", save.New(log, storage))
+	router.Get("/getAll", getAll.New(log, storage))
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
