@@ -52,6 +52,25 @@ func New() (*Storage, error) {
 
 	var exists bool
 	if err := db.QueryRow(`
+	SELECT EXISTS
+	(SELECT FROM pg_tables
+	WHERE schemename = 'public'
+	AND tablename = 'artists');`).Scan(&exists); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	if !exists {
+		_, err := db.Query(`
+		CREATE TABLE artists (
+		id SERIAL PRIMARY KEY,
+		name VARCHAR(255) NOT NULL UNIQUE,
+		genre VARCHAR(100),
+		country VARCHAR(100));`)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	if err := db.QueryRow(`
 	SELECT EXISTS 
 	(SELECT FROM pg_tables 
 	WHERE schemaname = 'public' 
@@ -63,15 +82,18 @@ func New() (*Storage, error) {
 		CREATE TABLE songs (
 		id SERIAL PRIMARY KEY,
 		title VARCHAR(255) NOT NULL,
-		artist VARCHAR(255) NOT NULL,
+		artist_id INT NOT NULL,
 		album VARCHAR(255),
 		release_year INT,
 		genre VARCHAR(100),
-		lyrics TEXT NOT NULL);`)
+		lyrics TEXT NOT NULL,
+		CONSTRAINT fk_aritst FOREIGN KEY (artist_id) REFERENCES artists (id) ON DELETE CASCADE);`)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
 		}
 	}
+
+	
 
 	return &Storage{db: db}, nil
 }
