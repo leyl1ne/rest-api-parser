@@ -93,8 +93,6 @@ func New() (*Storage, error) {
 		}
 	}
 
-	
-
 	return &Storage{db: db}, nil
 }
 
@@ -128,7 +126,7 @@ func (s *Storage) SaveSong(song models.Song) (int64, error) {
 func (s *Storage) DeleteSong(id int) error {
 	const op = "storage.psql.DeleteSong"
 
-	stmt, err := s.db.Prepare("DELTE FROM songs WHERE id = $1")
+	stmt, err := s.db.Prepare("DELETE FROM songs WHERE id = $1")
 	if err != nil {
 		return fmt.Errorf("%s: prepare statement: %w", op, err)
 	}
@@ -231,4 +229,128 @@ func (s *Storage) UpdateSong(id int, updatedSong models.Song) error {
 
 	return nil
 
+}
+
+func (s *Storage) SaveArtist(artist models.Artist) (int64, error) {
+	const op = "storage.psql.SaveArtist"
+
+	stmt, err := s.db.Prepare(`
+	INSERT INTO artists (name, genre, country)
+	VALUES ($1, $2, $3)
+	RETURNING id;`)
+	if err != nil {
+		return 0, fmt.Errorf("%s: prepare statement: %w", op, err)
+	}
+
+	var id int64
+	err = stmt.QueryRow(artist.Name, artist.Genre, artist.Country).Scan(&id)
+	if err != nil {
+		if postgreErr, ok := err.(*pq.Error); ok && postgreErr.Code == "23505" {
+			return 0, fmt.Errorf("%s: %w", op, storage.ErrArtistExists)
+		}
+
+		return 0, fmt.Errorf("%s: execute statement: %w", op, err)
+	}
+
+	return id, nil
+}
+
+func (s *Storage) DeleteArtist(id int) error {
+	const op = "storage.psql.DeleteArtist"
+
+	stmt, err := s.db.Prepare("DELETE FROM artists WHERE id = $1")
+	if err != nil {
+		return fmt.Errorf("%s: prepare statement: %w", op, err)
+	}
+
+	result, err := stmt.Exec(id)
+	if err != nil {
+		return fmt.Errorf("%s: execute statement: %w", op, err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("%s: rowsAffected: %w", op, err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("%s: %w", op, storage.ErrArtistNotFound)
+	}
+
+	return nil
+}
+
+func (s *Storage) GetArtist(id int) (models.Artist, error) {
+	const op = "storage.psql.GetArtist"
+
+	stmt, err := s.db.Prepare("SELECT * FROM artists WHERE id = $1")
+	if err != nil {
+		return models.Artist{}, fmt.Errorf("%s: prepare statement: %w", op, err)
+	}
+
+	artist := models.Artist{}
+
+	err = stmt.QueryRow(id).Scan(&artist.ID, &artist.Name, &artist.Genre, &artist.Country)
+	if errors.Is(err, sql.ErrNoRows) {
+		return models.Artist{}, fmt.Errorf("%s: %w", op, storage.ErrArtistNotFound)
+	}
+	if err != nil {
+		return models.Artist{}, fmt.Errorf("%s: execute statement: %w", op, err)
+	}
+
+	return artist, nil
+}
+
+func (s *Storage) GetAllArtist() ([]models.Artist, error) {
+	const op = "storage.psql.GetAllArtist"
+	var artists = make([]models.Artist, 0)
+
+	stmt, err := s.db.Prepare("SELECT * FROM artists;")
+	if err != nil {
+		return artists, fmt.Errorf("%s: prepare statement: %w", op, err)
+	}
+
+	result, err := stmt.Query()
+	if err != nil {
+		return artists, fmt.Errorf("%s: execute statement: %w", op, err)
+	}
+
+	for result.Next() {
+		var artist models.Artist
+		err = result.Scan(&artist.ID, &artist.Name, &artist.Genre, &artist.Country)
+		if err != nil {
+			return artists, fmt.Errorf("%s: %w", op, err)
+		}
+		artists = append(artists, artist)
+	}
+
+	return artists, nil
+}
+
+func (s *Storage) UpdateArtist(id int, updatedArtist models.Artist) error {
+	const op = "storage.psql.UpdateArtist"
+
+	stmt, err := s.db.Prepare(`
+	UPDATE artists SET
+	name = $2, genre = $3, country = $4
+	WHERE id = $1;`)
+	if err != nil {
+		return fmt.Errorf("%s: prepare statement: %w", op, err)
+	}
+
+	result, err := stmt.Exec(id, updatedArtist.Name, updatedArtist.Genre, updatedArtist.Country)
+	if err != nil {
+		return fmt.Errorf("%s: ecexute statement: %w", op, err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("%s: getting rows affected: %w", op, err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("%s: %w", op, storage.ErrArtistNotFound)
+	}
+
+	return nil
 }
